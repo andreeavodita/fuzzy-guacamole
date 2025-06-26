@@ -16,7 +16,6 @@ class Prompt(BaseModel):
     prompt: str
 
 @app.get("/chatbot/response")
-def chatbot_response(prompt_data: Prompt):
-    prompt = prompt_data.prompt
-    response = prompt[::-1]  # Example processing
+def chatbot_response(prompt: str):
+    response = prompt[::-1]
     return {"response": response}
