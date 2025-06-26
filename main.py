@@ -3,14 +3,11 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-class InputData(BaseModel):
-    input: str
+class Prompt(BaseModel):
+    prompt: str
 
-@app.post("/process")
-def process(data: InputData):
-    input_string = data.input
-
-    # Example processing
-    output_string = input_string[::-1]  # Just an example
-
-    return {"output": output_string}
+@app.post("/chatbot/response")
+def chatbot_response(prompt_data: Prompt):
+    prompt = prompt_data.prompt
+    response = prompt[::-1]  # Example processing
+    return {"response": response}
