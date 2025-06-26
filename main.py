@@ -6,7 +6,7 @@ app = FastAPI()
 class Prompt(BaseModel):
     prompt: str
 
-@app.post("/chatbot/response")
+@app.get("/chatbot/response")
 def chatbot_response(prompt_data: Prompt):
     prompt = prompt_data.prompt
     response = prompt[::-1]  # Example processing
