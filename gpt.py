@@ -1,38 +1,44 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import FAISS
-from langchain.embeddings import OpenAIEmbeddings
-import openai
+from langchain.embeddings import HuggingFaceEmbeddings
+from gpt4all import GPT4All
 import os
 
 app = FastAPI()
 
-class Prompt(BaseModel):
-    prompt: str
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+model = GPT4All("mistral-7b-openorca.Q4_0.gguf")
 
 # One-time FAISS index build or load
 def create_or_load_vectorstore():
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     if os.path.exists("my_faiss_index"):
-        return FAISS.load_local("my_faiss_index", OpenAIEmbeddings())
+        return FAISS.load_local("my_faiss_index", embeddings)
     else:
         loader = DirectoryLoader("my_documents/", glob="**/*.txt", loader_cls=TextLoader)
         docs = loader.load()
         splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
         chunks = splitter.split_documents(docs)
-        embeddings = OpenAIEmbeddings()
         db = FAISS.from_documents(chunks, embeddings)
         db.save_local("my_faiss_index")
         return db
 
 db = create_or_load_vectorstore()
 
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Or set directly if testing
-
-@app.post("/chatbot/response")
-def chatbot_response(prompt_data: Prompt):
-    query = prompt_data.prompt
+@app.get("/chatbot/response")
+def chatbot_response(prompt: str):
+    query = prompt
     relevant_docs = db.similarity_search(query, k=3)
 
     context = "\n\n".join([doc.page_content for doc in relevant_docs])
@@ -47,11 +53,8 @@ Question:
 
 Answer:"""
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": final_prompt}]
-    )
+    response = model.generate(final_prompt)
 
     return {
-        "response": response["choices"][0]["message"]["content"]
+        "response": response
     }
